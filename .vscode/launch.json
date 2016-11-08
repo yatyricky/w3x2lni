@@ -1,5 +1,6 @@
 {
     "version": "0.2.0",
+    //"debugServer": 4278,
     "configurations": [
         {
             "name": "打包地图",
@@ -36,7 +37,7 @@
             "type": "lua",
             "request": "launch",
             "program": "${workspaceRoot}/src/test.lua",
-            "stopOnEntry": true,
+            "stopOnEntry": false,
             "cwd": "${workspaceRoot}/src/build",
             "path": "",
             "cpath": "${workspaceRoot}/src/build/?.dll;",

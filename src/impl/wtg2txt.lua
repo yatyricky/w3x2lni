@@ -16,9 +16,9 @@ end
 
 --触发器类别(文件夹)
 function mt:parseCategories(wtg)
-	wtg.category_count = self:read('l')
 	wtg.categories = {}
-	for i = 1, wtg.category_count do
+	local category_count = self:read('l')
+	for i = 1, category_count do
 		self:parseCategory(wtg.categories)
 	end
 end
@@ -31,9 +31,9 @@ end
 
 --全局变量
 function mt:parseGlobals(wtg)
-	wtg.int_unknow_1, wtg.global_count = self:read('ll')
+	local _, global_count = self:read('ll')
 	wtg.globals = {}
-	for i = 1, wtg.global_count do
+	for i = 1, global_count do
 		self:parseGlobal(wtg.globals)
 	end
 end
@@ -54,9 +54,9 @@ end
 
 --触发器
 function mt:parseTriggers(wtg)
-	wtg.trigger_count = self:read('l')
 	wtg.triggers  = {}
-	for i = 1, wtg.trigger_count do
+	local trigger_count = self:read('l')
+	for i = 1, trigger_count do
 		self:parseTrigger(wtg.triggers)
 	end
 end
@@ -70,13 +70,13 @@ function mt:parseTrigger(triggers)
 	trigger.wct,        --是否是自定义代码(0不是, 1是)
 	trigger.init,       --是否初始化(0是, 1不是)
 	trigger.run_init,   --地图初始化时运行
-	trigger.category,    --在哪个文件夹下
-	trigger.eca_count
-	= self:read('zzlllllll')
+	trigger.category    --在哪个文件夹下
+	= self:read('zzllllll')
+	local eca_count = self:read('l')
 	table.insert(triggers, trigger)
 	--初始化
 	trigger.ecas = {}
-	for i = 1, trigger.eca_count do
+	for i = 1, eca_count do
 		self:parseEca(trigger.ecas)
 	end
 end
@@ -99,8 +99,8 @@ function mt:parseEca(ecas, is_child, is_arg)
 	eca.name, eca.enable = self:read('zl')
 	self:parseArgs(ecas, eca)
 	--if,loop等复合结构
-	eca.child_eca_count = self:read('l')
-	for i = 1, eca.child_eca_count do
+	local eca_count = self:read('l')
+	for i = 1, eca_count do
 		self:parseEca(ecas, true)
 	end
 end
@@ -120,22 +120,16 @@ end
 
 function mt:parseArg(ecas, args)
 	local arg = {}
-	arg.type,           --类型(0预设, 1变量, 2函数, 3代码)
-	arg.value,          --值
-	arg.insert_call --是否需要插入调用
-	= self:read('lzl')
-	--是否是索引
 	table.insert(args, arg)
-	--插入调用
-	if arg.insert_call == 1 then
+	local has_eca
+	arg.type, arg.value, has_eca = self:read('lzl')
+	if has_eca == 1 then
 		self:parseEca(ecas, false, arg)
-		arg.int_unknow_1 = self:read('l') --永远是0
+		self:read('l')
 		return
 	end
-	--是否需要插入数组索引
-	arg.insert_index = self:read('l')
-	--插入数组索引
-	if arg.insert_index == 1 then
+	local has_arg = self:read('l')
+	if has_arg == 1 then
 		self:parseArg(args)
 	end
 end
@@ -162,6 +156,8 @@ local function wtg2txt(self, file_name_in, file_name_out)
 	local wtg = {}
 	mt:parse(wtg, content, self.function_state)
 
+	io.save(file_name_out, stringify(wtg))
+	do return end
 	--开始转化文本
 	local lines = string.create_lines(1)
 	
