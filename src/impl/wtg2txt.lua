@@ -1,28 +1,25 @@
 local mt = {}
-local index = 1
-local content
-local chunk = {}
 
 function mt:read_accept(...)
-	index = select(-1, ...)
+	self.pos = select(-1, ...)
 	return ...
 end
 
 function mt:read(fmt)
-	return self:read_accept(fmt:unpack(content, index))
+	return self:read_accept(fmt:unpack(self.buf, self.pos))
 end
 
 --文件头
-function mt:parseHeader()
-	chunk.file_id, chunk.file_ver = self:read('c4l')
+function mt:parseHeader(wtg)
+	wtg.file_id, wtg.file_ver = self:read('c4l')
 end
 
 --触发器类别(文件夹)
-function mt:parseCategories()
-	chunk.category_count = self:read('l')
-	chunk.categories = {}
-	for i = 1, chunk.category_count do
-		self:parseCategory(chunk.categories)
+function mt:parseCategories(wtg)
+	wtg.category_count = self:read('l')
+	wtg.categories = {}
+	for i = 1, wtg.category_count do
+		self:parseCategory(wtg.categories)
 	end
 end
 
@@ -33,11 +30,11 @@ function mt:parseCategory(categories)
 end
 
 --全局变量
-function mt:parseGlobals()
-	chunk.int_unknow_1, chunk.global_count = self:read('ll')
-	chunk.globals = {}
-	for i = 1, chunk.global_count do
-		self:parseGlobal(chunk.globals)
+function mt:parseGlobals(wtg)
+	wtg.int_unknow_1, wtg.global_count = self:read('ll')
+	wtg.globals = {}
+	for i = 1, wtg.global_count do
+		self:parseGlobal(wtg.globals)
 	end
 end
 
@@ -56,11 +53,11 @@ function mt:parseGlobal(globals)
 end
 
 --触发器
-function mt:parseTriggers()
-	chunk.trigger_count = self:read('l')
-	chunk.triggers  = {}
-	for i = 1, chunk.trigger_count do
-		self:parseTrigger(chunk.triggers)
+function mt:parseTriggers(wtg)
+	wtg.trigger_count = self:read('l')
+	wtg.triggers  = {}
+	for i = 1, wtg.trigger_count do
+		self:parseTrigger(wtg.triggers)
 	end
 end
 
@@ -143,32 +140,40 @@ function mt:parseArg(ecas, args)
 	end
 end
 
-local function wtg2txt(_self, file_name_in, file_name_out)
-	mt.function_state = _self.function_state
-	content = io.load(file_name_in)
+function mt:parse(wtg, buf, function_state)
+	self.pos = 1
+	self.buf = buf
+	self.function_state = function_state
+	self:parseHeader(wtg)
+	self:parseCategories(wtg)
+	self:parseGlobals(wtg)
+	self:parseTriggers(wtg)
+end
+
+local stringify = require 'lni-stringify'
+
+local function wtg2txt(self, file_name_in, file_name_out)
+	local content = io.load(file_name_in)
 	if not content then
 		print('文件无效:' .. file_name_in:string())
 		return
 	end
 
-	--开始解析
-	mt:parseHeader()
-	mt:parseCategories()
-	mt:parseGlobals()
-	mt:parseTriggers()
+	local wtg = {}
+	mt:parse(wtg, content, self.function_state)
 
 	--开始转化文本
 	local lines = string.create_lines(1)
 	
 	do
 		--版本
-		lines '[\'%s\']=%d,' ('VERSION', chunk.file_ver)
-		lines '[\'%s\']=%d,' ('未知1', chunk.int_unknow_1)
+		lines '[\'%s\']=%d,' ('VERSION', wtg.file_ver)
+		lines '[\'%s\']=%d,' ('未知1', wtg.int_unknow_1)
 
 		--全局变量
 		local function f()
 			local lines = string.create_lines(2)
-			for i, global in ipairs(chunk.globals) do
+			for i, global in ipairs(wtg.globals) do
 				if global.is_array == 1 then
 					if global.value ~= '' then
 						lines '{%q, %q, %d, %q}' (global.type, global.name, global.array_size, global.value)
@@ -193,7 +198,7 @@ local function wtg2txt(_self, file_name_in, file_name_out)
 		local function f()
 			local lines = string.create_lines(2)
 
-			for _, category in ipairs(chunk.categories) do
+			for _, category in ipairs(wtg.categories) do
 				lines '{%q, %d, %d}' (
 					category.name,
 					category.id,
@@ -215,7 +220,7 @@ local function wtg2txt(_self, file_name_in, file_name_out)
 		local function f()
 			local lines = string.create_lines(2)
 
-			for _, trigger in ipairs(chunk.triggers) do
+			for _, trigger in ipairs(wtg.triggers) do
 				local function f()
 					local lines = string.create_lines(3)
 					
