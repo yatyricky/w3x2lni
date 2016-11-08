@@ -158,6 +158,9 @@ local function wtg2txt(self, file_name_in, file_name_out)
 		eca.args	= args
 
 		--print(eca.type, eca.name)
+		if not self.function_state[eca.type][eca.name] then
+			error(('没有找到%q的UI定义'):format(eca.name))
+		end
 		local state_args	= self.function_state[eca.type][eca.name].args
 		local arg_count	= #state_args
 
@@ -227,7 +230,7 @@ local function wtg2txt(self, file_name_in, file_name_out)
 					end
 				else
 					if var.value ~= '' then
-						lines '{%q, %q, %d, %q}':format(var.type, var.name, 0, var.value)
+						lines '{%q, %q, %d, %q}' (var.type, var.name, 0, var.value)
 					else
 						lines '{%q, %q}' (var.type, var.name)
 					end
@@ -465,7 +468,7 @@ local function wtg2txt(self, file_name_in, file_name_out)
 		
 	end
 
-	io.save(file_name_out, table.concat(lines, '\r\n'):convert_wts(true))
+	io.save(file_name_out, table.concat(lines, '\r\n'))--:convert_wts(true))
 
 	--io.save(file_name_out, table.concat(lines, '\r\n'))	--貌似wtg文件写入文本会出错
 end

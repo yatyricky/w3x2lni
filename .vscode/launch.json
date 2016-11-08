@@ -30,6 +30,21 @@
                "${workspaceRoot}"
             ],
             "console" : "ansi"
+        },
+        {
+            "name": "测试",
+            "type": "lua",
+            "request": "launch",
+            "program": "${workspaceRoot}/src/test.lua",
+            "stopOnEntry": true,
+            "cwd": "${workspaceRoot}/src/build",
+            "path": "",
+            "cpath": "${workspaceRoot}/src/build/?.dll;",
+            "arg": [
+               "${workspaceRoot}/NicoPoiDuang_4.0",
+               "${workspaceRoot}"
+            ],
+            "console" : "ansi"
         }
     ]
 }
