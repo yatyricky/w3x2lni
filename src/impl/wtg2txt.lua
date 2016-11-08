@@ -1,11 +1,7 @@
 local mt = {}
-
-local self
-local index	= 1
+local index = 1
 local content
---local len	= #content
-local chunk	= {}
-local categories, category, vars, var, triggers, trigger, ecas, eca, args, arg
+local chunk = {}
 
 function mt:read_accept(...)
 	index = select(-1, ...)
@@ -17,177 +13,152 @@ function mt:read(fmt)
 end
 
 --文件头
-function mt:readHead()
-	chunk.file_id,			--文件ID
-	chunk.file_ver			--文件版本
-	= self:read('c4l')
+function mt:parseHeader()
+	chunk.file_id, chunk.file_ver = self:read('c4l')
 end
+
 --触发器类别(文件夹)
-function mt:readCategories()
-	--触发器类别数量
+function mt:parseCategories()
 	chunk.category_count = self:read('l')
-	--初始化
-	categories	= {}
-	chunk.categories	= categories
+	chunk.categories = {}
 	for i = 1, chunk.category_count do
-		self:readCategory()
+		self:parseCategory(chunk.categories)
 	end
 end
-function mt:readCategory()
-	category	= {}
+
+function mt:parseCategory(categories)
+	local category = {}
 	category.id, category.name, category.comment = self:read('lzl')
 	table.insert(categories, category)
 end
+
 --全局变量
-function mt:readVars()
-	--全局变量数量
-	chunk.int_unknow_1, chunk.var_count = self:read('ll')
-	
-	--初始化
-	vars	= {}
-	chunk.vars	= vars
-	for i = 1, chunk.var_count do
-		self:readVar()
+function mt:parseGlobals()
+	chunk.int_unknow_1, chunk.global_count = self:read('ll')
+	chunk.globals = {}
+	for i = 1, chunk.global_count do
+		self:parseGlobal(chunk.globals)
 	end
 end
-function mt:readVar()
-	var	= {}
-	var.name,		--变量名
-	var.type,		--变量类型
-	var.int_unknow_1,	--(永远是1,忽略)
-	var.is_array,	--是否是数组(0不是, 1是)
-	var.array_size,	--数组大小(非数组是1)
-	var.is_default,	--是否是默认值(0是, 1不是)
-	var.value		--初始数值
+
+function mt:parseGlobal(globals)
+	local global = {}
+	global.name,       --变量名
+	global.type,       --变量类型
+	global.int_unknow_1,   --(永远是1,忽略)
+	global.is_array,   --是否是数组(0不是, 1是)
+	global.array_size, --数组大小(非数组是1)
+	global.is_default, --是否是默认值(0是, 1不是)
+	global.value       --初始数值
 	= self:read('zzllllz')
-	table.insert(vars, var)
-	vars[var.name]	= var
+	table.insert(globals, global)
+	globals[global.name]  = global
 end
+
 --触发器
-function mt:readTriggers()
-	--触发器数量
-	chunk.trigger_count	= self:read('l')
-	--初始化
-	triggers	= {}
-	chunk.triggers	= triggers
+function mt:parseTriggers()
+	chunk.trigger_count = self:read('l')
+	chunk.triggers  = {}
 	for i = 1, chunk.trigger_count do
-		self:readTrigger()
+		self:parseTrigger(chunk.triggers)
 	end
 end
-function mt:readTrigger()
-	trigger	= {}
-	trigger.name,		--触发器名字
-	trigger.des,		--触发器描述
-	trigger.type,		--类型(0普通, 1注释)
-	trigger.enable,		--是否允许(0禁用, 1允许)
-	trigger.wct,		--是否是自定义代码(0不是, 1是)
-	trigger.init,		--是否初始化(0是, 1不是)
-	trigger.run_init,	--地图初始化时运行
-	trigger.category	--在哪个文件夹下
-	= self:read('zzllllll')
+
+function mt:parseTrigger(triggers)
+	local trigger = {}
+	trigger.name,       --触发器名字
+	trigger.des,        --触发器描述
+	trigger.type,       --类型(0普通, 1注释)
+	trigger.enable,     --是否允许(0禁用, 1允许)
+	trigger.wct,        --是否是自定义代码(0不是, 1是)
+	trigger.init,       --是否初始化(0是, 1不是)
+	trigger.run_init,   --地图初始化时运行
+	trigger.category,    --在哪个文件夹下
+	trigger.eca_count
+	= self:read('zzlllllll')
 	table.insert(triggers, trigger)
-	--print('trigger:' .. trigger.name)
-	--读取子结构
-	self:readEcas()
-end
---子结构
-function mt:readEcas()
-	--子结构数量
-	trigger.eca_count = self:read('l')
 	--初始化
-	ecas	= {}
-	trigger.ecas	= ecas
+	trigger.ecas = {}
 	for i = 1, trigger.eca_count do
-		self:readEca()
+		self:parseEca(trigger.ecas)
 	end
 end
-function mt:readEca(is_child, is_arg)
-	eca	= {}
-	local eca	= eca
-	
-	eca.type	--类型(0事件, 1条件, 2动作, 3函数调用)
-	= self:read('l')
+
+function mt:parseEca(ecas, is_child, is_arg)
+	local eca = {}
+	--类型(0事件, 1条件, 2动作, 3函数调用)
+	eca.type = self:read('l')
 	--是否是复合结构
 	if is_child then
 		eca.child_id = self:read('l')
 	end
 	--是否是参数中的子函数
 	if is_arg then
-		is_arg.eca	= eca
+		is_arg.eca  = eca
 	else
 		table.insert(ecas, eca)
 	end
 	
-	eca.name,	--名字
-	eca.enable	--是否允许(0不允许, 1允许)
-	= self:read('zl')
-	--print('eca:' .. eca.name)
-	--读取参数
-	self:readArgs(eca)
+	eca.name, eca.enable = self:read('zl')
+	self:parseArgs(ecas, eca)
 	--if,loop等复合结构
 	eca.child_eca_count = self:read('l')
 	for i = 1, eca.child_eca_count do
-		self:readEca(true)
+		self:parseEca(ecas, true)
 	end
 end
+
 --参数
-function mt:readArgs(eca)
-	--初始化
-	args	= {}
-	local args	= args
-	eca.args	= args
-	--print(eca.type, eca.name)
+function mt:parseArgs(ecas, eca)
+	eca.args    = {}
 	if not self.function_state[eca.type][eca.name] then
 		error(('没有找到%q的UI定义'):format(eca.name))
 	end
-	local state_args	= self.function_state[eca.type][eca.name].args
-	local arg_count	= #state_args
-	--print('args:' .. arg_count)
+	local state_args = self.function_state[eca.type][eca.name].args
+	local arg_count = #state_args
 	for i = 1, arg_count do
-		self:readArg(args)
+		self:parseArg(ecas, eca.args)
 	end
 end
-function mt:readArg(args)
-	arg	= {}
-	arg.type, 			--类型(0预设, 1变量, 2函数, 3代码)
-	arg.value,			--值
-	arg.insert_call	--是否需要插入调用
+
+function mt:parseArg(ecas, args)
+	local arg = {}
+	arg.type,           --类型(0预设, 1变量, 2函数, 3代码)
+	arg.value,          --值
+	arg.insert_call --是否需要插入调用
 	= self:read('lzl')
-	--print('var:' .. arg.value)
 	--是否是索引
 	table.insert(args, arg)
 	--插入调用
 	if arg.insert_call == 1 then
-		self:readEca(false, arg)
+		self:parseEca(ecas, false, arg)
 		arg.int_unknow_1 = self:read('l') --永远是0
-		--print(arg.int_unknow_1)
 		return
 	end
-	arg.insert_index	--是否需要插入数组索引
-	= self:read('l')
+	--是否需要插入数组索引
+	arg.insert_index = self:read('l')
 	--插入数组索引
 	if arg.insert_index == 1 then
-		self:readArg(args)
+		self:parseArg(args)
 	end
 end
 
-
 local function wtg2txt(_self, file_name_in, file_name_out)
 	mt.function_state = _self.function_state
-	content	= io.load(file_name_in)
+	content = io.load(file_name_in)
 	if not content then
 		print('文件无效:' .. file_name_in:string())
 		return
 	end
 
 	--开始解析
-	mt:readHead()
-	mt:readCategories()
-	mt:readVars()
-	mt:readTriggers()
+	mt:parseHeader()
+	mt:parseCategories()
+	mt:parseGlobals()
+	mt:parseTriggers()
 
 	--开始转化文本
-	local lines	= string.create_lines(1)
+	local lines = string.create_lines(1)
 	
 	do
 		--版本
@@ -197,18 +168,18 @@ local function wtg2txt(_self, file_name_in, file_name_out)
 		--全局变量
 		local function f()
 			local lines = string.create_lines(2)
-			for i, var in ipairs(chunk.vars) do
-				if var.is_array == 1 then
-					if var.value ~= '' then
-						lines '{%q, %q, %d, %q}' (var.type, var.name, var.array_size, var.value)
+			for i, global in ipairs(chunk.globals) do
+				if global.is_array == 1 then
+					if global.value ~= '' then
+						lines '{%q, %q, %d, %q}' (global.type, global.name, global.array_size, global.value)
 					else
-						lines '{%q, %q, %d}' (var.type, var.name, var.array_size)
+						lines '{%q, %q, %d}' (global.type, global.name, global.array_size)
 					end
 				else
-					if var.value ~= '' then
-						lines '{%q, %q, %d, %q}' (var.type, var.name, 0, var.value)
+					if global.value ~= '' then
+						lines '{%q, %q, %d, %q}' (global.type, global.name, 0, global.value)
 					else
-						lines '{%q, %q}' (var.type, var.name)
+						lines '{%q, %q}' (global.type, global.name)
 					end
 				end
 			end
@@ -258,7 +229,7 @@ local function wtg2txt(_self, file_name_in, file_name_out)
 					lines '[\'%s\']=%d' ('类别', trigger.category)
 
 					--触发器ECA
-					local max		= #trigger.ecas
+					local max       = #trigger.ecas
 					if max > 0 then
 						
 						local function f()
@@ -267,13 +238,13 @@ local function wtg2txt(_self, file_name_in, file_name_out)
 							local lines_condition = string.create_lines(5)
 							local lines_action = string.create_lines(5)
 						
-							local tab	= 1
+							local tab   = 1
 							local ecas, index = trigger.ecas, 1
 
 							local function push_eca(eca, lines_arg)
 								if not eca then
-									eca	= ecas[index]
-									index	= index + 1
+									eca = ecas[index]
+									index   = index + 1
 									if not eca then
 										return false
 									end
