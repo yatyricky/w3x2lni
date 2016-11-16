@@ -81,32 +81,18 @@ function mt:parseTrigger(triggers)
 	end
 end
 
-function mt:parseEca(ecas, is_child, is_arg)
+function mt:parseEca(ecas, is_child)
 	local eca = {}
+	table.insert(ecas, eca)
 	--类型(0事件, 1条件, 2动作, 3函数调用)
 	eca.type = self:read('l')
 	--是否是复合结构
 	if is_child then
 		eca.child_id = self:read('l')
 	end
-	--是否是参数中的子函数
-	if is_arg then
-		is_arg.eca  = eca
-	else
-		table.insert(ecas, eca)
-	end
-	
 	eca.name, eca.enable = self:read('zl')
-	self:parseArgs(ecas, eca)
-	--if,loop等复合结构
-	local eca_count = self:read('l')
-	for i = 1, eca_count do
-		self:parseEca(ecas, true)
-	end
-end
-
---参数
-function mt:parseArgs(ecas, eca)
+	
+	--参数
 	eca.args    = {}
 	if not self.function_state[eca.type][eca.name] then
 		error(('没有找到%q的UI定义'):format(eca.name))
@@ -114,17 +100,27 @@ function mt:parseArgs(ecas, eca)
 	local state_args = self.function_state[eca.type][eca.name].args
 	local arg_count = #state_args
 	for i = 1, arg_count do
-		self:parseArg(ecas, eca.args)
+		self:parseArg(eca.args)
+	end
+	
+	--if,loop等复合结构
+	local eca_count = self:read('l')
+	if eca_count > 0 then
+		eca.ecas = {}
+		for i = 1, eca_count do
+			self:parseEca(eca.ecas, true)
+		end
 	end
 end
 
-function mt:parseArg(ecas, args)
+function mt:parseArg(args)
 	local arg = {}
 	table.insert(args, arg)
 	local has_eca
 	arg.type, arg.value, has_eca = self:read('lzl')
 	if has_eca == 1 then
-		self:parseEca(ecas, false, arg)
+		arg.ecas = {}
+		self:parseEca(arg.ecas)
 		self:read('l')
 		return
 	end
