@@ -1,6 +1,5 @@
 require 'utility'
-
-local root = fs.current_path():parent_path()
+local root = require 'backend.w2l_path'
 
 local function ydwe_ui(w2l)
     local ydwe_path = require 'backend.ydwe_path'
@@ -20,7 +19,7 @@ local function ydwe_ui(w2l)
 end
 
 return function (w2l, filename)
-    if filename:sub(1, 3) == 'ui/' and w2l.setting.data_ui == '${YDWE}' then
+    if filename:sub(1, 3) == 'ui\\' and w2l.setting.data_ui == '${YDWE}' then
         if not w2l.ydwe_ui then
             w2l.ydwe_ui = { ydwe_ui() }
         end

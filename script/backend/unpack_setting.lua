@@ -5,6 +5,7 @@ local config = require 'share.config'
 local lang = require 'share.lang'
 local check_lni_mark = require 'share.check_lni_mark'
 local base = require 'backend.base_path'
+local root = require 'backend.w2l_path'
 
 require 'utility'
 require 'filesystem'
@@ -36,7 +37,11 @@ local function check_config(w2l, type, key)
     if effect == raw then
         return
     end
-    w2l:failed(lang.script.CONFIG_INVALID_DIR:format(type, key, raw))
+    if fs.exists(root / 'data' / raw) then
+        w2l:failed(lang.script.CONFIG_DIR_VERSION_ERROR:format(type, key))
+    else
+        w2l:failed(lang.script.CONFIG_DIR_NO_EXISTS:format(type, key))
+    end
 end
 
 local function normalize_path(w2l, path)

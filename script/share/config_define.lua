@@ -1,5 +1,5 @@
 require 'filesystem'
-local root = fs.current_path()
+local root = require 'backend.w2l_path'
 
 local function string_proxy(key, concat)
     return setmetatable({}, {
@@ -87,7 +87,7 @@ local function confusion(confusion)
 end
 
 local function get_langs()
-    local locale = root / 'locale'
+    local locale = root / 'script' / 'locale'
     local list = {}
     for dir in locale:list_directory() do
         if fs.is_directory(dir) then
@@ -105,7 +105,7 @@ local function insert_lang(chars, max, lng)
     if lng == '${AUTO}' then
         chars[#chars+1] = tostring(raw.AUTO_SELECT)
     else
-        chars[#chars+1] = io.load(root / 'locale' / lng / 'name')
+        chars[#chars+1] = io.load(root / 'script' / 'locale' / lng / 'name')
     end
     chars[#chars+1] = '\r\n'
 end
@@ -145,14 +145,22 @@ local function is_valid_data(dir)
         return false
     end
     local data_version = require 'share.data_version'
-    if data_version ~= io.load(dir / 'version') then
+    local buf = io.load(dir / 'version')
+    if not buf then
+        return false, raw.DATA_VERSION_ERROR
+    end
+    local mpq_version = {}
+    for ver in buf:gmatch '%C+' do
+        mpq_version[#mpq_version+1] = ver
+    end
+    if data_version[1] ~= mpq_version[1] then
         return false, raw.DATA_VERSION_ERROR
     end
     return true
 end
 
 local function get_datas()
-    local locale = root:parent_path() / 'data'
+    local locale = root / 'data'
     local list = {}
     for dir in locale:list_directory() do
         if is_valid_data(dir) then
@@ -181,7 +189,7 @@ local function global_data(v)
             return true, v, v
         end
     end
-    local suc, info = is_valid_data(root:parent_path() / 'data' / tostring(v))
+    local suc, info = is_valid_data(root / 'data' / tostring(v))
     assert(suc == false)
     if info then
         return false, info
@@ -224,12 +232,13 @@ local define = {
     _child = true,
     'global', 'lni', 'slk', 'obj',
     global = {
-        'lang', 'data', 'data_ui', 'data_meta', 'data_wes',
+        'lang', 'data', 'data_ui', 'data_meta', 'data_wes', 'data_load',
         lang                = {langf,     raw.CONFIG_GLOBAL_LANG .. lang_hint},
         data                = {global_data,           raw.CONFIG_GLOBAL_DATA},
         data_ui             = {global_data_ui,        raw.CONFIG_GLOBAL_DATA_UI},
         data_meta           = {global_data_meta,      raw.CONFIG_GLOBAL_DATA_META},
         data_wes            = {global_data_wes,       raw.CONFIG_GLOBAL_DATA_WES},
+        data_load           = {string},
     },
     lni = {
         'read_slk', 'find_id_times', 'export_lua',

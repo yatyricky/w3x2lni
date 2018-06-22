@@ -1,9 +1,9 @@
 require 'filesystem'
 local lni = require 'lni'
 local define = require 'share.config_define'
-local root = fs.current_path()
-local default_config = lni(io.load(root / 'share' / 'config.ini'), 'script\\share\\config.ini')
-local global_config  = lni(io.load(root:parent_path() / 'config.ini'), 'config.ini')
+local root = require 'backend.w2l_path'
+local default_config = lni(io.load(root / 'script' / 'share' / 'config.ini'), 'script\\share\\config.ini')
+local global_config  = lni(io.load(root / 'config.ini'), 'config.ini')
 local map_config = {}
 
 local config = {}
@@ -13,17 +13,19 @@ local function save()
     for name, t in pairs(config) do
         lines[#lines+1] = ('[%s]'):format(name)
         for k, v in pairs(t) do
-            local value = global_config[name][k]
-            if value == nil then
-                value = default_config[name][k]
+            if define[name][k][2] ~= nil then
+                local value = global_config[name][k]
+                if value == nil then
+                    value = default_config[name][k]
+                end
+                local _, _, fmt = define[name][k][1](value)
+                lines[#lines+1] = ('%s = %s'):format(k, fmt)
             end
-            local _, _, fmt = define[name][k][1](value)
-            lines[#lines+1] = ('%s = %s'):format(k, fmt)
         end
         lines[#lines+1] = ''
     end
     local buf = table.concat(lines, '\r\n')
-    io.save(root:parent_path() / 'config.ini', buf)
+    io.save(root / 'config.ini', buf)
 end
 
 local function proxy(default, global, map, define, table)
@@ -123,6 +125,10 @@ function config:define_comment(k1, k2)
         return false, lang.raw.INVALID_CONFIG
     end
     return tostring(definer[2])
+end
+
+function config:define_visible(k1, k2)
+    return define[k1][k2][2] ~= nil
 end
 
 return proxy(default_config, global_config, map_config, define, config)

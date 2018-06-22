@@ -29,7 +29,8 @@ function mini:init()
     view:addchildview(title)
 
     local title_label = gui.Label.create('')
-    title_label:setstyle { Height = 20, Width = 80 }
+    title_label:setstyle { Height = 20, Left = 5 }
+    title_label:setalign 'start'
     title_label:setcolor('#eee')
     title_label:setfont(gui.Font.create('宋体', 16, "bold", "normal"))
     title_label:setmousedowncanmovewindow(true)
@@ -37,6 +38,7 @@ function mini:init()
     
     local label = gui.Label.create('')
     label:setstyle { Margin = 5, Height = 20 }
+    label:setalign 'start'
     label:setmousedowncanmovewindow(true)
     view:addchildview(label)
     
@@ -119,37 +121,6 @@ local function sortpairs(t)
     end
 end
 
-local function create_report()
-    for type, report in sortpairs(backend.report) do
-        if type ~= '' then
-            local total = report[1][1]:match('TOTAL:(%d+)')
-            local title = ('%s (%d)'):format(type:sub(2), total or #report)
-            print('================')
-            print(title)
-            print('================')
-            for i, s in ipairs(report) do
-                if total and i == 1 then
-                elseif s[2] then
-                    print(('%s - %s'):format(s[1], s[2]))
-                else
-                    print(s[1])
-                end
-            end
-            print('')
-        end
-    end
-    local report = backend.report['']
-    if report then
-        for _, s in ipairs(report) do
-            if s[2] then
-                print(('%s - %s'):format(s[1], s[2]))
-            else
-                print(s[1])
-            end
-        end
-    end
-end
-
 local function update()
     worker:update()
     mini:settext(backend.message)
@@ -161,9 +132,13 @@ local function update()
         return 0, 1
     end
     if worker.exited then
-        create_report()
+        if backend.lastword then
+            if backend.lastword.type == 'failed' or backend.lastword.type == 'error' or backend.lastword.type == 'warning' then
+                messagebox(lang.ui.ERROR, '%s', backend.lastword.content)
+            end
+        end
         if worker.exit_code == 0 then
-            return 1000, 0
+            return 0, 0
         else
             return 0, worker.exit_code
         end
