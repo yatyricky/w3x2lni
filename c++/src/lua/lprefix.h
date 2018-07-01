@@ -40,21 +40,33 @@
 #endif
 
 #ifndef lua_c
-	#include "../utf8/utf8_crt.h"
-	#ifndef lundump_c
-		#include <Windows.h>
-	#endif
-	#define fopen(...) utf8_fopen(__VA_ARGS__)
-	#define popen(...) utf8_popen(__VA_ARGS__)
-	#define system(...) utf8_system(__VA_ARGS__)
-	#define remove(...) utf8_remove(__VA_ARGS__)
-	#define rename(...) utf8_rename(__VA_ARGS__)
-	#define getenv(...) utf8_getenv(__VA_ARGS__)
-	#define LoadLibraryExA(...) utf8_LoadLibraryExA(__VA_ARGS__)
-	#define GetModuleFileNameA(...) utf8_GetModuleFileNameA(__VA_ARGS__)
+#include "../utf8/utf8_crt.h"
+#ifndef lundump_c
+#include <Windows.h>
+#endif
+#define fopen(...) utf8_fopen(__VA_ARGS__)
+#define popen(...) utf8_popen(__VA_ARGS__)
+#define system(...) utf8_system(__VA_ARGS__)
+#define remove(...) utf8_remove(__VA_ARGS__)
+#define rename(...) utf8_rename(__VA_ARGS__)
+#define getenv(...) utf8_getenv(__VA_ARGS__)
+#define LoadLibraryExA(...) utf8_LoadLibraryExA(__VA_ARGS__)
+#define GetModuleFileNameA(...) utf8_GetModuleFileNameA(__VA_ARGS__)
 #endif
 
 #endif			/* } */
+
+#include <stdlib.h>
+
+__inline unsigned int luafix_makeseed(void *L) {
+	const char* seed = getenv("LUA_SEED");
+	if (seed) {
+		return atoi(seed);
+	}
+	return *(unsigned int*)"Lua\0";
+}
+
+#define luai_makeseed luafix_makeseed
 
 #endif
 
